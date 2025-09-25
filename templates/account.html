@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>My Account</h2>
+<p>Welcome, {{ user.username }}!</p>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">Register New Device</div>
+            <div class="card-body">
+                {% if message %}
+                    <div class="alert alert-success">{{ message }}</div>
+                {% endif %}
+                {% if error %}
+                    <div class="alert alert-danger">{{ error }}</div>
+                {% endif %}
+                <form action="/account/register-device" method="post">
+                    <div class="mb-3">
+                        <label for="device_code" class="form-label">Device Code</label>
+                        <input type="text" class="form-control" id="device_code" name="device_code" required>
+                        <div class="form-text">Enter the unique code from your hardware device.</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="device_name" class="form-label">Device Name</label>
+                        <input type="text" class="form-control" id="device_name" name="device_name" value="My Weather Station" required>
+                    </div>
+                    <div class="mb-3">
+                        <label>Device Location</label>
+                        <div id="map" style="height: 300px;"></div>
+                        <small class="form-text">Click on the map to set your device's location.</small>
+                        <input type="hidden" id="latitude" name="latitude">
+                        <input type="hidden" id="longitude" name="longitude">
+                    </div>
+                    <button type="submit" class="btn btn-primary">Register Device</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">Your Devices</div>
+            <div class="card-body">
+                <ul class="list-group">
+                    {% for device in user.devices %}
+                        <li class="list-group-item">{{ device.name }} (Code: {{ device.device_code }})</li>
+                    {% else %}
+                        <li class="list-group-item">You have no registered devices.</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        var map = L.map('map').setView([20, 0], 2);
+        var marker;
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+
+        map.on('click', function(e) {
+            if (marker) {
+                map.removeLayer(marker);
+            }
+            marker = L.marker(e.latlng).addTo(map);
+            document.getElementById('latitude').value = e.latlng.lat;
+            document.getElementById('longitude').value = e.latlng.lng;
+        });
+    });
+</script>
+{% endblock %}
