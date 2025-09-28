@@ -42,6 +42,56 @@
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         }).addTo(map);
 
+        // Function to fetch and display device data
+        function fetchDeviceData(deviceId, deviceName) {
+            // Show loading state
+            document.getElementById('weather-details').innerHTML = `
+                <h4>${deviceName}</h4>
+                <p>Loading latest readings...</p>
+                <p><strong>Temperature:</strong> <span id="temp">--</span> &deg;C</p>
+                <p><strong>Pressure:</strong> <span id="pressure">--</span> hPa</p>
+                <p><strong>Humidity:</strong> <span id="humidity">--</span> %</p>
+                <p><strong>Rain Chance (1hr):</strong> <span id="rain">--</span> %</p>
+            `;
+
+            fetch(`/api/devices/${deviceId}/latest`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Failed to fetch device data');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    // Format timestamp if available
+                    let lastUpdated = '';
+                    if (data.timestamp) {
+                        const date = new Date(data.timestamp);
+                        lastUpdated = `<p><small>Last updated: ${date.toLocaleString()}</small></p>`;
+                    }
+
+                    // Update the weather details with real data
+                    document.getElementById('weather-details').innerHTML = `
+                        <h4>${data.device_name}</h4>
+                        ${lastUpdated}
+                        <p><strong>Temperature:</strong> <span id="temp">${data.temperature !== null ? data.temperature.toFixed(1) : '--'}</span> &deg;C</p>
+                        <p><strong>Pressure:</strong> <span id="pressure">${data.pressure !== null ? data.pressure.toFixed(1) : '--'}</span> hPa</p>
+                        <p><strong>Humidity:</strong> <span id="humidity">${data.humidity !== null ? data.humidity.toFixed(1) : '--'}</span> %</p>
+                        <p><strong>Rain Chance (1hr):</strong> <span id="rain">${data.rain_chance}</span> %</p>
+                    `;
+                })
+                .catch(error => {
+                    console.error('Error fetching device data:', error);
+                    document.getElementById('weather-details').innerHTML = `
+                        <h4>${deviceName}</h4>
+                        <p class="text-danger">Error loading data. Please try again.</p>
+                        <p><strong>Temperature:</strong> <span id="temp">--</span> &deg;C</p>
+                        <p><strong>Pressure:</strong> <span id="pressure">--</span> hPa</p>
+                        <p><strong>Humidity:</strong> <span id="humidity">--</span> %</p>
+                        <p><strong>Rain Chance (1hr):</strong> <span id="rain">--</span> %</p>
+                    `;
+                });
+        }
+
         fetch('/api/devices')
             .then(response => response.json())
             .then(devices => {
@@ -51,12 +101,8 @@
                 devices.forEach(device => {
                     var marker = L.marker([device.latitude, device.longitude]).addTo(map);
                     marker.bindPopup(`<b>${device.name}</b>`).on('click', function(e) {
-                        // In a real app, you'd fetch live data for this device.
-                        // For now, we'll just display its location.
-                        document.getElementById('weather-details').innerHTML = `
-                            <h4>${device.name}</h4>
-                            <p>Details would be loaded here.</p>
-                        `;
+                        // Fetch live data for this device
+                        fetchDeviceData(device.id, device.name);
                     });
                 });
             });

@@ -37,7 +37,9 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 
 # --- Database Setup ---
-DATABASE_URL = "sqlite:///./weather.db"
+# Use environment variable for database path to support Docker volumes
+DB_PATH = os.getenv("DB_PATH", "./weather.db")
+DATABASE_URL = f"sqlite:///{DB_PATH}"
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()

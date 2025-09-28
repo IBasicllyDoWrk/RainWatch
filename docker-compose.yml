@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  rainwatch:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - DB_PATH=/app/data/weather.db
+      - PYTHONPATH=/app
+    volumes:
+      # Persistent storage for the SQLite database
+      - rainwatch_data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/', timeout=10)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  rainwatch_data:
+    driver: local

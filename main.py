@@ -46,6 +46,19 @@ class DeviceInfo(BaseModel):
         from_attributes = True
 
 
+class LatestReading(BaseModel):
+    device_id: int
+    device_name: str
+    temperature: Optional[float] = None
+    humidity: Optional[float] = None
+    pressure: Optional[float] = None
+    timestamp: Optional[datetime] = None
+    rain_chance: int = 0  # Placeholder for rain prediction
+
+    class Config:
+        from_attributes = True
+
+
 # --- Lifespan for application startup/shutdown ---
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -280,4 +293,45 @@ def get_devices(db: Session = Depends(get_db)):
         db.query(Device)
         .filter(Device.latitude.isnot(None), Device.longitude.isnot(None))
         .all()
+    )
+
+
+@app.get("/api/devices/{device_id}/latest", response_model=LatestReading, tags=["API"])
+def get_latest_reading(device_id: int, db: Session = Depends(get_db)):
+    """Returns the latest reading for a specific device."""
+    device = db.query(Device).filter(Device.id == device_id).first()
+    if not device:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Device with id {device_id} not found"
+        )
+    
+    # Get the most recent reading for this device
+    latest_reading = (
+        db.query(Reading)
+        .filter(Reading.device_id == device_id)
+        .order_by(Reading.timestamp.desc())
+        .first()
+    )
+    
+    # Calculate a simple rain chance based on humidity (this is a placeholder)
+    rain_chance = 0
+    if latest_reading and latest_reading.humidity:
+        if latest_reading.humidity > 80:
+            rain_chance = 75
+        elif latest_reading.humidity > 60:
+            rain_chance = 45
+        elif latest_reading.humidity > 40:
+            rain_chance = 20
+        else:
+            rain_chance = 5
+    
+    return LatestReading(
+        device_id=device.id,
+        device_name=device.name,
+        temperature=latest_reading.temperature if latest_reading else None,
+        humidity=latest_reading.humidity if latest_reading else None,
+        pressure=latest_reading.pressure if latest_reading else None,
+        timestamp=latest_reading.timestamp if latest_reading else None,
+        rain_chance=rain_chance
     )
