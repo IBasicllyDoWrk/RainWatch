@@ -1,30 +1,56 @@
-
 import os
-from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, ForeignKey
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, relationship
-from datetime import datetime
-from passlib.context import CryptContext
+from sqlalchemy import (
+    create_engine,
+    Column,
+    Integer,
+    String,
+    Float,
+    DateTime,
+    ForeignKey,
+)
+from sqlalchemy.orm import declarative_base, sessionmaker, relationship
+from datetime import datetime, UTC
+import bcrypt
 
-# Password Hashing
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-def get_password_hash(password):
-    return pwd_context.hash(password)
+# --- Corrected Password Hashing and Verification ---
+def get_password_hash(password: str) -> str:
+    """Hashes a password using bcrypt."""
+    # Ensure password is encoded as UTF-8 and truncated to 72 bytes as per bcrypt's limitation
+    password_bytes = password.encode("utf-8")[:72]
+    salt = bcrypt.gensalt()
+    hashed_password = bcrypt.hashpw(password_bytes, salt)
+    return hashed_password.decode("utf-8")
 
-# Database setup
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    """Verifies a plain password against a hashed password."""
+    try:
+        # Convert the plain password and the stored hash back to bytes
+        plain_password_bytes = plain_password.encode("utf-8")[:72]
+        hashed_password_bytes = hashed_password.encode("utf-8")
+        # Verify the password
+        return bcrypt.checkpw(plain_password_bytes, hashed_password_bytes)
+    except (ValueError, TypeError):
+        # Handle cases where the hashed_password is not a valid hash
+        return False
+
+
+# --- Database Setup ---
 DATABASE_URL = "sqlite:///./weather.db"
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
-# Database Models
+
+# --- Database Models ---
 class User(Base):
     __tablename__ = "users"
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String, unique=True, index=True)
     hashed_password = Column(String)
     devices = relationship("Device", back_populates="owner")
+
 
 class Device(Base):
     __tablename__ = "devices"
@@ -37,20 +63,25 @@ class Device(Base):
     owner = relationship("User", back_populates="devices")
     readings = relationship("Reading", back_populates="device")
 
+
 class Reading(Base):
     __tablename__ = "readings"
     id = Column(Integer, primary_key=True, index=True)
-    timestamp = Column(DateTime, default=datetime.utcnow)
+    timestamp = Column(DateTime, default=lambda: datetime.now(UTC))
     temperature = Column(Float)
     pressure = Column(Float)
     humidity = Column(Float)
     device_id = Column(Integer, ForeignKey("devices.id"))
     device = relationship("Device", back_populates="readings")
 
+
 def create_db_and_tables():
+    """Creates all database tables."""
     Base.metadata.create_all(bind=engine)
 
+
 def get_db():
+    """Dependency to get a database session."""
     db = SessionLocal()
     try:
         yield db
